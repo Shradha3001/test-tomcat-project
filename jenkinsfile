@@ -9,7 +9,7 @@ pipeline {
         DEPLOY_SERVER = '13.233.129.17'  // Tomcat server IP
         DEPLOY_USER = 'ubuntu'  // User on the Tomcat server
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'  // Tomcat 10 webapps directory
-        GIT_REPO = 'https://github.com/your-org/your-repo.git'  // Git repository URL
+        GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'  // Git repository URL
     }
     stages {
         stage('Checkout Code') {
