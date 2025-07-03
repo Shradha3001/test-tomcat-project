@@ -37,13 +37,17 @@ pipeline {
         stage('Deploy to Tomcat') {
             steps {
                 script {
+                    // Get the .war file
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
-                    echo "Deploying WAR file: ${warFile}"
                     
+                    // Print out the warFile variable to debug
+                    echo "Deploying WAR file: ${warFile}"
+
                     // Use Jenkins' SSH credentials for SCP and SSH commands
                     sshagent(['ubuntu']) {
                         sh """
-                        scp target/${warFile} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
+                        echo "Copying ${warFile} to Tomcat server"
+                        scp ${warFile} ${DEPLOY_USER}@${DEPLOY_SERVER}:${DEPLOY_PATH}/
                         ssh ${DEPLOY_USER}@${DEPLOY_SERVER} 'sudo systemctl restart tomcat10'
                         """
                     }
