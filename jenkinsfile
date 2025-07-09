@@ -3,11 +3,11 @@ pipeline {
     parameters {
         // Manual selection of branch during emergency
         string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build and deploy')
+        booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Set to true to deploy after build')
     }
     environment {
-        // Define environment variables
         DEPLOY_SERVER = '13.233.129.17'  // Tomcat server IP
-        DEPLOY_USER = 'ubuntu'  // User on the Tomcat server
+        DEPLOY_USER = 'ubuntu'           // User on the Tomcat server
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'  // Tomcat 10 webapps directory
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'  // Git repository URL
     }
@@ -15,7 +15,6 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 script {
-                    // Use the branch parameter or detect the branch pushed automatically
                     def branch = params.BRANCH_NAME ? params.BRANCH_NAME : env.BRANCH_NAME
                     echo "Checking out branch: ${branch}"
                     checkout scm: [
@@ -35,12 +34,14 @@ pipeline {
             }
         }
         stage('Deploy to Tomcat') {
+            when {
+                expression { return params.DEPLOY == false }
+            }
             steps {
                 script {
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
                     echo "Deploying WAR file: ${warFile}"
                     
-                    // Use Jenkins' SSH credentials for SCP and SSH commands
                     sshagent(['ubuntu']) {
                         sh """
                         echo "Copying ${warFile} to Tomcat server"
@@ -54,10 +55,10 @@ pipeline {
     }
     post {
         success {
-            echo 'Deployment Successful!'
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'Deployment Failed!'
+            echo 'Pipeline failed!'
         }
     }
 }
