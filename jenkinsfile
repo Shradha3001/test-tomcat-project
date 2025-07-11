@@ -1,21 +1,23 @@
 pipeline {
-    agent { label 'user-side-vf2.o-staging' }  // Set the agent for the pipeline
+    agent { label 'user-side-vf2.o-staging' }
+
     parameters {
-        // Manual selection of branch during emergency
         string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build and deploy')
         booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Set to true to deploy after build')
     }
+
     environment {
-        DEPLOY_SERVER = '13.233.129.17'  // Tomcat server IP
-        DEPLOY_USER = 'ubuntu'           // User on the Tomcat server
-        DEPLOY_PATH = '/var/lib/tomcat10/webapps/'  // Tomcat 10 webapps directory
-        GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'  // Git repository URL
+        DEPLOY_SERVER = '13.233.129.17'
+        DEPLOY_USER = 'ubuntu'
+        DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
+        GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
     }
+
     stages {
         stage('Checkout Code') {
             steps {
                 script {
-                    def branch = params.BRANCH_NAME ? params.BRANCH_NAME : env.BRANCH_NAME
+                    def branch = params.BRANCH_NAME ?: env.BRANCH_NAME
                     echo "Checking out branch: ${branch}"
                     checkout scm: [
                         $class: 'GitSCM',
@@ -25,6 +27,7 @@ pipeline {
                 }
             }
         }
+
         stage('Build WAR File') {
             steps {
                 script {
@@ -33,6 +36,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Tomcat') {
             when {
                 expression { return params.DEPLOY == false }
@@ -41,7 +45,7 @@ pipeline {
                 script {
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
                     echo "Deploying WAR file: ${warFile}"
-                    
+
                     sshagent(['ubuntu']) {
                         sh """
                         echo "Copying ${warFile} to Tomcat server"
@@ -53,7 +57,21 @@ pipeline {
             }
         }
     }
+
     post {
+        always {
+            echo 'Pipeline completed (success or failure). Sending email...'
+            emailext (
+                subject: "Jenkins Pipeline: ${currentBuild.fullDisplayName} - ${currentBuild.currentResult}",
+                body: """<p>Build Status: ${currentBuild.currentResult}</p>
+                         <p>Job: ${env.JOB_NAME}</p>
+                         <p>Build Number: ${env.BUILD_NUMBER}</p>
+                         <p>Branch: ${params.BRANCH_NAME}</p>
+                         <p>Check console: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+                to: 'shradha.m@viralfission.com, omkar@viralfission.com',
+                mimeType: 'text/html'
+            )
+        }
         success {
             echo 'Pipeline completed successfully!'
         }
