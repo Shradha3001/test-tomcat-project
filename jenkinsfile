@@ -39,7 +39,7 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             when {
-                expression { return params.DEPLOY == false }  // ✅ Deploy only when explicitly checked
+                expression { return params.DEPLOY == true }  // ✅ Deploy only when checkbox is checked
             }
             steps {
                 script {
@@ -59,19 +59,6 @@ pipeline {
     }
 
     post {
-        always {
-            echo 'Pipeline completed (success or failure). Sending email...'
-            emailext (
-                subject: "Jenkins Pipeline: ${currentBuild.fullDisplayName} - ${currentBuild.currentResult}",
-                body: """<p>Build Status: ${currentBuild.currentResult}</p>
-                         <p>Job: ${env.JOB_NAME}</p>
-                         <p>Build Number: ${env.BUILD_NUMBER}</p>
-                         <p>Branch: ${params.BRANCH_NAME}</p>
-                         <p>Check console: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
-                to: 'shradha.m@viralfission.com, omkar@viralfission.com',
-                mimeType: 'text/html'
-            )
-        }
         success {
             echo 'Pipeline completed successfully!'
         }
