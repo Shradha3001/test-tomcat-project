@@ -39,7 +39,7 @@ pipeline {
 
         stage('Deploy to Tomcat') {
             when {
-                expression { return params.DEPLOY == true }  // ✅ Deploy only when explicitly checked
+                expression { return params.DEPLOY == false }  // ✅ Deploy only when explicitly checked
             }
             steps {
                 script {
