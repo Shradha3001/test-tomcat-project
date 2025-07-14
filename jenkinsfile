@@ -38,13 +38,15 @@ pipeline {
         }
 
         stage('Deploy to Tomcat') {
-            when {
-                expression { return params.DEPLOY == true }  // ✅ Deploy only when checkbox is checked
-            }
             steps {
                 script {
+                    if (!params.DEPLOY) {
+                        echo "❌ DEPLOY is not checked — skipping deployment."
+                        return
+                    }
+
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
-                    echo "Deploying WAR file: ${warFile}"
+                    echo "✅ Deploying WAR file: ${warFile}"
 
                     sshagent(['ubuntu']) {
                         sh """
@@ -60,10 +62,10 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo '❌ Pipeline failed!'
         }
     }
 }
