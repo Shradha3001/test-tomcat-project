@@ -2,7 +2,7 @@ pipeline {
     agent { label 'user-side-vf2.o-staging' }
 
     parameters {
-        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build and deploy')
+        string(name: 'BRANCH_NAME', defaultValue: 'cicd-test', description: 'Branch to build and deploy')
         booleanParam(name: 'BUILD', defaultValue: false, description: 'Set to true to build the branch')
         booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Set to true to deploy after build')
     }
@@ -12,7 +12,7 @@ pipeline {
         DEPLOY_USER = 'ubuntu'
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
-        GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
+        GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQA8NAqMUY/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=JgGJFJjtD-onYJESzgXUDSd737fzxu62Pqif0rcrV3o'
     }
 
     stages {
@@ -27,13 +27,28 @@ pipeline {
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
                     
-                    // Capture Git user info (committer)
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
-                    
-                    // Send commit info to Google Chat
-                    def commitMessage = "New commit by ${gitUser} on branch ${branch}."
-                    sendToGoogleChat(commitMessage)
+
+                    def commitMessage = "📦 Code Checkout:\nNew commit by ${gitUser} on branch ${branch}."
+                    sendMessageToGoogleChat(commitMessage)
+                }
+            }
+        }
+
+        stage('Notify Build Start') {
+            steps {
+                script {
+                    def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+                    def (commitMessage, committerName) = commitDetails.tokenize('|')
+
+                    def buildStartMessage = """🚀 Build Started:
+Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
+Build Status: Started
+Trigger Commit: ${commitMessage}
+Changes Made By: ${committerName}
+Build URL: ${env.BUILD_URL}"""
+                    sendMessageToGoogleChat(buildStartMessage)
                 }
             }
         }
@@ -71,29 +86,47 @@ pipeline {
                         """
                     }
 
-                    // Send deployment status to Google Chat
-                    def deploymentStatus = "Deployment successful for branch ${params.BRANCH_NAME}."
-                    sendToGoogleChat(deploymentStatus)
+                    def deploymentStatus = "🚀 Deployment successful for branch ${params.BRANCH_NAME}."
+                    sendMessageToGoogleChat(deploymentStatus)
                 }
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Pipeline completed successfully!'
+        always {
+            cleanWs()
         }
+
+        success {
+            script {
+                def successMessage = """✅ Build Success:
+Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
+Build Status: Success
+Build URL: ${env.BUILD_URL}"""
+                sendMessageToGoogleChat(successMessage)
+            }
+        }
+
         failure {
-            echo '❌ Pipeline failed!'
-            sendToGoogleChat("Pipeline failed for branch ${params.BRANCH_NAME}.")
+            script {
+                def failureMessage = """❌ Build Failure:
+Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
+Build Status: Failure
+Build URL: ${env.BUILD_URL}"""
+                sendMessageToGoogleChat(failureMessage)
+            }
         }
     }
 }
 
-def sendToGoogleChat(message) {
-    sh """
-    echo 'Sending message to Google Chat...'
-    curl -X POST -H 'Content-Type: application/json' --data '{"text": \"${message}\"}' ${GCHAT_WEBHOOK_URL}
-    """
+def sendMessageToGoogleChat(String message) {
+    def payloadGoogleChat = [
+        "text": message
+    ]
+    httpRequest httpMode: 'POST',
+                acceptType: 'APPLICATION_JSON',
+                contentType: 'APPLICATION_JSON',
+                requestBody: groovy.json.JsonOutput.toJson(payloadGoogleChat),
+                url: env.GCHAT_WEBHOOK_URL
 }
-
