@@ -12,7 +12,7 @@ pipeline {
         DEPLOY_USER = 'ubuntu'
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
-        GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'  // Update with your actual Google Chat Webhook URL
+        GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'  // Your actual Google Chat Webhook URL
     }
 
     stages {
@@ -95,4 +95,3 @@ def sendToGoogleChat(message) {
     curl -X POST -H 'Content-Type: application/json' --data '{"text": "${message}"}' ${GCHAT_WEBHOOK_URL}
     """
 }
-
