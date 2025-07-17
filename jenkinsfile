@@ -93,6 +93,7 @@ pipeline {
 def sendToGoogleChat(message) {
     sh """
     echo 'Sending message to Google Chat...'
-    curl -X POST -H 'Content-Type: application/json' --data '{"text": "${message}"}' ${GCHAT_WEBHOOK_URL} || echo 'Failed to send message to Google Chat'
+    curl -X POST -H 'Content-Type: application/json' --data '{"text": \"${message}\"}' ${GCHAT_WEBHOOK_URL}
     """
 }
+
