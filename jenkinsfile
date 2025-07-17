@@ -12,6 +12,7 @@ pipeline {
         DEPLOY_USER = 'ubuntu'
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
+        GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/your-space-id/messages?key=your-webhook-key'  // Update with your actual Google Chat Webhook URL
     }
 
     stages {
@@ -25,6 +26,14 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
+                    
+                    // Capture Git user info (committer)
+                    def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
+                    echo "Committer: ${gitUser}"
+                    
+                    // Send commit info to Google Chat
+                    def commitMessage = "New commit by ${gitUser} on branch ${branch}."
+                    sendToGoogleChat(commitMessage)
                 }
             }
         }
@@ -61,6 +70,10 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_SERVER} 'sudo systemctl restart tomcat10'
                         """
                     }
+
+                    // Send deployment status to Google Chat
+                    def deploymentStatus = "Deployment successful for branch ${params.BRANCH_NAME}."
+                    sendToGoogleChat(deploymentStatus)
                 }
             }
         }
@@ -72,6 +85,13 @@ pipeline {
         }
         failure {
             echo '❌ Pipeline failed!'
+            sendToGoogleChat("Pipeline failed for branch ${params.BRANCH_NAME}.")
         }
     }
+}
+
+def sendToGoogleChat(message) {
+    sh """
+    curl -X POST -H 'Content-Type: application/json' --data '{"text": "${message}"}' ${GCHAT_WEBHOOK_URL}
+    """
 }
