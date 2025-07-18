@@ -42,8 +42,8 @@ pipeline {
                     def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
                     def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-                    // Fallback for user if BUILD_USER_ID is not set
-                    def buildUser = env.BUILD_USER_ID ?: sh(script: "git log -1 --pretty=format:'%an'", returnStdout: true).trim() ?: "Unknown User"
+                    // Check for the user who triggered the build
+                    def buildUser = env.BUILD_USER_ID ?: "Unknown User"
 
                     def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
