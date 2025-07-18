@@ -36,26 +36,26 @@ pipeline {
             }
         }
 
-        stage('Notify Build Start') {
-            steps {
-                script {
-                    def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
-                    def (commitMessage, committerName) = commitDetails.tokenize('|')
+stage('Notify Build Start') {
+    steps {
+        script {
+            def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+            def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-                    // Check for the user who triggered the build
-                    def buildUser = env.BUILD_USER_ID ?: "Unknown User"
+            // Check for the user who triggered the build using BUILD_USER environment variable
+            def buildUser = env.BUILD_USER ?: "Unknown User"
 
-                    def buildStartMessage = """🚀 Build Started:
+            def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
 Build Triggered By: ${buildUser}  // User who triggered the build
 Build URL: ${env.BUILD_URL}"""
-                    sendMessageToGoogleChat(buildStartMessage)
-                }
-            }
+            sendMessageToGoogleChat(buildStartMessage)
         }
+    }
+}
 
         stage('Build WAR File') {
             steps {
