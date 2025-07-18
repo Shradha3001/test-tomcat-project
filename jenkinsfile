@@ -13,20 +13,18 @@ pipeline {
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
+        BUILD_TRIGGER_USER = 'unknown'   // to be updated in runtime
+        BUILD_TRIGGER_ID = 'unknown'
     }
-
-    // Define build user vars at top scope
-    def buildUser = "unknown"
-    def buildUserId = "unknown"
 
     stages {
         stage('Capture Build User') {
             steps {
                 script {
                     wrap([$class: 'BuildUser']) {
-                        buildUser = env.BUILD_USER ?: "unknown"
-                        buildUserId = env.BUILD_USER_ID ?: "unknown"
-                        echo "🔔 Build triggered by: ${buildUser} (${buildUserId})"
+                        env.BUILD_TRIGGER_USER = env.BUILD_USER ?: "unknown"
+                        env.BUILD_TRIGGER_ID = env.BUILD_USER_ID ?: "unknown"
+                        echo "🔔 Build triggered by: ${env.BUILD_TRIGGER_USER} (${env.BUILD_TRIGGER_ID})"
                     }
                 }
             }
@@ -61,7 +59,7 @@ pipeline {
                     def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
-Started By: ${buildUser} (${buildUserId})
+Started By: ${env.BUILD_TRIGGER_USER} (${env.BUILD_TRIGGER_ID})
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
 Build URL: ${env.BUILD_URL}"""
@@ -120,7 +118,7 @@ Build URL: ${env.BUILD_URL}"""
                 def successMessage = """✅ Build Success:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Success
-Started By: ${buildUser} (${buildUserId})
+Started By: ${env.BUILD_TRIGGER_USER} (${env.BUILD_TRIGGER_ID})
 Build URL: ${env.BUILD_URL}"""
                 sendMessageToGoogleChat(successMessage)
             }
@@ -131,7 +129,7 @@ Build URL: ${env.BUILD_URL}"""
                 def failureMessage = """❌ Build Failure:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Failure
-Started By: ${buildUser} (${buildUserId})
+Started By: ${env.BUILD_TRIGGER_USER} (${env.BUILD_TRIGGER_ID})
 Build URL: ${env.BUILD_URL}"""
                 sendMessageToGoogleChat(failureMessage)
             }
@@ -139,7 +137,6 @@ Build URL: ${env.BUILD_URL}"""
     }
 }
 
-// Function to send messages to Google Chat
 def sendMessageToGoogleChat(String message) {
     def payloadGoogleChat = [
         "text": message
