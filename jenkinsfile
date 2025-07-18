@@ -1,7 +1,9 @@
 pipeline {
-    agent { label 'user-side-vf2.o-staging' }
+    // Dynamically choose agent based on parameter selected in UI
+    agent { label params.AGENT_LABEL }
 
     parameters {
+        choice(name: 'AGENT_LABEL', choices: ['user-side-vf2.o-staging', 'user-side-vf2.o-production'], description: 'Select agent to run this build')
         string(name: 'BRANCH_NAME', defaultValue: 'cicd-test', description: 'Branch to build and deploy')
         booleanParam(name: 'BUILD', defaultValue: false, description: 'Set to true to build the branch')
         booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Set to true to deploy after build')
@@ -48,28 +50,28 @@ pipeline {
             }
         }
 
-       stage('Notify Build Start') {
-    steps {
-        script {
-            wrap([$class: 'BuildUser']) {
-                def triggeredBy = env.BUILD_USER ?: "unknown"
-                def triggeredById = env.BUILD_USER_ID ?: "unknown"
+        stage('Notify Build Start') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        def triggeredBy = env.BUILD_USER ?: "unknown"
+                        def triggeredById = env.BUILD_USER_ID ?: "unknown"
 
-                def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
-                def (commitMessage, committerName) = commitDetails.tokenize('|')
+                        def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+                        def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-                def buildStartMessage = """🚀 Build Started:
+                        def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
 Triggered By: ${triggeredBy} (${triggeredById})
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
 Build URL: ${env.BUILD_URL}"""
-                sendMessageToGoogleChat(buildStartMessage)
+                        sendMessageToGoogleChat(buildStartMessage)
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Build WAR File') {
             steps {
