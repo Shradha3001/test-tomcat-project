@@ -15,7 +15,23 @@ pipeline {
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
     }
 
+    // Define build user vars at top scope
+    def buildUser = "unknown"
+    def buildUserId = "unknown"
+
     stages {
+        stage('Capture Build User') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        buildUser = env.BUILD_USER ?: "unknown"
+                        buildUserId = env.BUILD_USER_ID ?: "unknown"
+                        echo "🔔 Build triggered by: ${buildUser} (${buildUserId})"
+                    }
+                }
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 script {
@@ -26,7 +42,7 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
-
+                    
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
 
@@ -36,26 +52,23 @@ pipeline {
             }
         }
 
-stage('Notify Build Start') {
-    steps {
-        script {
-            def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
-            def (commitMessage, committerName) = commitDetails.tokenize('|')
+        stage('Notify Build Start') {
+            steps {
+                script {
+                    def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+                    def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-            // Check for the user who triggered the build using BUILD_USER environment variable
-            def buildUser = env.BUILD_USER ?: "Unknown User"
-
-            def buildStartMessage = """🚀 Build Started:
+                    def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
+Started By: ${buildUser} (${buildUserId})
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
-Build Triggered By: ${buildUser}  // User who triggered the build
 Build URL: ${env.BUILD_URL}"""
-            sendMessageToGoogleChat(buildStartMessage)
+                    sendMessageToGoogleChat(buildStartMessage)
+                }
+            }
         }
-    }
-}
 
         stage('Build WAR File') {
             steps {
@@ -107,6 +120,7 @@ Build URL: ${env.BUILD_URL}"""
                 def successMessage = """✅ Build Success:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Success
+Started By: ${buildUser} (${buildUserId})
 Build URL: ${env.BUILD_URL}"""
                 sendMessageToGoogleChat(successMessage)
             }
@@ -117,6 +131,7 @@ Build URL: ${env.BUILD_URL}"""
                 def failureMessage = """❌ Build Failure:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Failure
+Started By: ${buildUser} (${buildUserId})
 Build URL: ${env.BUILD_URL}"""
                 sendMessageToGoogleChat(failureMessage)
             }
@@ -124,6 +139,7 @@ Build URL: ${env.BUILD_URL}"""
     }
 }
 
+// Function to send messages to Google Chat
 def sendMessageToGoogleChat(String message) {
     def payloadGoogleChat = [
         "text": message
