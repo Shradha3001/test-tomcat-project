@@ -26,7 +26,7 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
-                    
+
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
 
@@ -42,11 +42,15 @@ pipeline {
                     def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
                     def (commitMessage, committerName) = commitDetails.tokenize('|')
 
+                    // Capture the user who triggered the build
+                    def buildUser = currentBuild.getBuildCauses()[0].getUserId()
+
                     def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
+Build Triggered By: ${buildUser}  // Added build user info here
 Build URL: ${env.BUILD_URL}"""
                     sendMessageToGoogleChat(buildStartMessage)
                 }
