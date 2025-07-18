@@ -43,14 +43,14 @@ pipeline {
                     def (commitMessage, committerName) = commitDetails.tokenize('|')
 
                     // Capture the user who triggered the build
-                    def buildUser = currentBuild.getBuildCauses()[0].getUserId()
+                    def buildUser = env.BUILD_USER_ID ?: "Unknown User"
 
                     def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
-Build Triggered By: ${buildUser}  // Added build user info here
+Build Triggered By: ${buildUser}  // User who triggered the build
 Build URL: ${env.BUILD_URL}"""
                     sendMessageToGoogleChat(buildStartMessage)
                 }
