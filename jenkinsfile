@@ -14,10 +14,21 @@ pipeline {
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
-        AWS_EB_ENV_URL = 'http://firebase-staging-env-vf2.eba-di2pahnb.ap-south-1.elasticbeanstalk.com/'  // Replace this with the actual URL
     }
 
     stages {
+        stage('Who Triggered This Build?') {
+            steps {
+                script {
+                    wrap([$class: 'BuildUser']) {
+                        def triggeredBy = env.BUILD_USER ?: "unknown"
+                        def triggeredById = env.BUILD_USER_ID ?: "unknown"
+                        echo "👤 This build was manually triggered by: ${triggeredBy} (ID: ${triggeredById})"
+                    }
+                }
+            }
+        }
+
         stage('Checkout Code') {
             steps {
                 script {
@@ -28,7 +39,7 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
-
+                    
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
 
@@ -44,15 +55,15 @@ pipeline {
                     def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
                     def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-                    // Check for the user who triggered the build
+                    // Capture the user who triggered the build
                     def buildUser = env.BUILD_USER_ID ?: "Unknown User"
 
                     def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
-Triggered By: ${buildUser}
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
+Build Triggered By: ${buildUser}  // User who triggered the build
 Build URL: ${env.BUILD_URL}"""
                     sendMessageToGoogleChat(buildStartMessage)
                 }
@@ -79,18 +90,21 @@ Build URL: ${env.BUILD_URL}"""
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
                     echo "✅ Uploading WAR file to Elastic Beanstalk: ${warFile}"
 
-                    // Create a new application version in Elastic Beanstalk
+                    // Assuming you will pass the Elastic Beanstalk environment URL for each agent
+                    def elasticBeanstalkEnvUrl = params.AGENT_LABEL == 'user-side-vf2.o-staging' ? 'http://firebase-staging-env-vf2.eba-di2pahnb.ap-south-1.elasticbeanstalk.com/' : 'https://production.elasticbeanstalk.com'
+
+                    // Get the application name and environment from the URL
+                    def applicationName = elasticBeanstalkEnvUrl.split("/")[2]
+                    def environmentName = elasticBeanstalkEnvUrl.split("/")[3]
+
+                    // Create application version in Elastic Beanstalk
                     sh """
                     aws elasticbeanstalk create-application-version \
-                        --application-name your-application-name \
+                        --application-name ${applicationName} \
                         --version-label ${env.BUILD_NUMBER} \
-                        --source-bundle S3Bucket=your-s3-bucket-name,S3Key=your-s3-key/${warFile} \
+                        --source-bundle S3Bucket=vj-ocr-bucket,S3Key=deployments/${warFile} \
                         --region your-region
                     """
-
-                    // Notify success to Google Chat
-                    def uploadStatus = "🚀 WAR file uploaded to Elastic Beanstalk for branch ${params.BRANCH_NAME}."
-                    sendMessageToGoogleChat(uploadStatus)
                 }
             }
         }
