@@ -1,5 +1,4 @@
 pipeline {
-    // Dynamically choose agent based on parameter selected in UI
     agent { label params.AGENT_LABEL }
 
     parameters {
@@ -15,21 +14,10 @@ pipeline {
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
+        AWS_EB_ENV_URL = 'your-elasticbeanstalk-environment-url'  // Replace this with the actual URL
     }
 
     stages {
-        stage('Who Triggered This Build?') {
-            steps {
-                script {
-                    wrap([$class: 'BuildUser']) {
-                        def triggeredBy = env.BUILD_USER ?: "unknown"
-                        def triggeredById = env.BUILD_USER_ID ?: "unknown"
-                        echo "👤 This build was manually triggered by: ${triggeredBy} (ID: ${triggeredById})"
-                    }
-                }
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 script {
@@ -40,7 +28,7 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
-                    
+
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
 
@@ -53,22 +41,20 @@ pipeline {
         stage('Notify Build Start') {
             steps {
                 script {
-                    wrap([$class: 'BuildUser']) {
-                        def triggeredBy = env.BUILD_USER ?: "unknown"
-                        def triggeredById = env.BUILD_USER_ID ?: "unknown"
+                    def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+                    def (commitMessage, committerName) = commitDetails.tokenize('|')
 
-                        def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
-                        def (commitMessage, committerName) = commitDetails.tokenize('|')
+                    // Check for the user who triggered the build
+                    def buildUser = env.BUILD_USER_ID ?: "Unknown User"
 
-                        def buildStartMessage = """🚀 Build Started:
+                    def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
-Triggered By: ${triggeredBy} (${triggeredById})
+Triggered By: ${buildUser}
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
 Build URL: ${env.BUILD_URL}"""
-                        sendMessageToGoogleChat(buildStartMessage)
-                    }
+                    sendMessageToGoogleChat(buildStartMessage)
                 }
             }
         }
@@ -83,6 +69,28 @@ Build URL: ${env.BUILD_URL}"""
 
                     echo "Building the WAR file for branch: ${params.BRANCH_NAME}"
                     sh 'mvn clean package -Dmaven.test.skip=true'
+                }
+            }
+        }
+
+        stage('Upload to Elastic Beanstalk') {
+            steps {
+                script {
+                    def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
+                    echo "✅ Uploading WAR file to Elastic Beanstalk: ${warFile}"
+
+                    // Create a new application version in Elastic Beanstalk
+                    sh """
+                    aws elasticbeanstalk create-application-version \
+                        --application-name your-application-name \
+                        --version-label ${env.BUILD_NUMBER} \
+                        --source-bundle S3Bucket=your-s3-bucket-name,S3Key=your-s3-key/${warFile} \
+                        --region your-region
+                    """
+
+                    // Notify success to Google Chat
+                    def uploadStatus = "🚀 WAR file uploaded to Elastic Beanstalk for branch ${params.BRANCH_NAME}."
+                    sendMessageToGoogleChat(uploadStatus)
                 }
             }
         }
