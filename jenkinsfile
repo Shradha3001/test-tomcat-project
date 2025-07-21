@@ -14,7 +14,7 @@ pipeline {
         DEPLOY_PATH = '/var/lib/tomcat10/webapps/'
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
-        AWS_EB_ENV_URL = 'your-elasticbeanstalk-environment-url'  // Replace this with the actual URL
+        AWS_EB_ENV_URL = 'http://firebase-staging-env-vf2.eba-di2pahnb.ap-south-1.elasticbeanstalk.com/'  // Replace this with the actual URL
     }
 
     stages {
