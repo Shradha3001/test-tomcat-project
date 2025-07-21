@@ -1,5 +1,7 @@
 pipeline {
+    // Dynamically choose agent based on parameter selected in UI
     agent { label params.AGENT_LABEL }
+
 
     parameters {
         choice(name: 'AGENT_LABEL', choices: ['user-side-vf2.o-staging', 'user-side-vf2.o-production'], description: 'Select agent to run this build')
@@ -8,6 +10,7 @@ pipeline {
         booleanParam(name: 'DEPLOY', defaultValue: false, description: 'Set to true to deploy after build')
     }
 
+
     environment {
         DEPLOY_SERVER = '13.233.129.17'
         DEPLOY_USER = 'ubuntu'
@@ -15,6 +18,7 @@ pipeline {
         GIT_REPO = 'https://github.com/Shradha3001/test-tomcat-project.git'
         GCHAT_WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAQyzaUkw/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=MT5wgI3M3C5aHVpASFZi6h7yi3A0vkl7JFdi4lulEMo'
     }
+
 
     stages {
         stage('Who Triggered This Build?') {
@@ -29,6 +33,7 @@ pipeline {
             }
         }
 
+
         stage('Checkout Code') {
             steps {
                 script {
@@ -39,9 +44,10 @@ pipeline {
                         branches: [[name: "*/${branch}"]],
                         userRemoteConfigs: [[url: GIT_REPO]]
                     ]
-                    
+                   
                     def gitUser = sh(script: "git log -1 --pretty=format:'%an <%ae>'", returnStdout: true).trim()
                     echo "Committer: ${gitUser}"
+
 
                     def commitMessage = "📦 Code Checkout:\nNew commit by ${gitUser} on branch ${branch}."
                     sendMessageToGoogleChat(commitMessage)
@@ -49,26 +55,32 @@ pipeline {
             }
         }
 
+
         stage('Notify Build Start') {
             steps {
                 script {
-                    def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
-                    def (commitMessage, committerName) = commitDetails.tokenize('|')
+                    wrap([$class: 'BuildUser']) {
+                        def triggeredBy = env.BUILD_USER ?: "unknown"
+                        def triggeredById = env.BUILD_USER_ID ?: "unknown"
 
-                    // Capture the user who triggered the build
-                    def buildUser = env.BUILD_USER_ID ?: "Unknown User"
 
-                    def buildStartMessage = """🚀 Build Started:
+                        def commitDetails = sh(script: "git log -1 --pretty=format:'%s|%an'", returnStdout: true).trim()
+                        def (commitMessage, committerName) = commitDetails.tokenize('|')
+
+
+                        def buildStartMessage = """🚀 Build Started:
 Build Name: ${env.JOB_NAME} [${env.BUILD_NUMBER}]
 Build Status: Started
+Triggered By: ${triggeredBy} (${triggeredById})
 Trigger Commit: ${commitMessage}
 Changes Made By: ${committerName}
-Build Triggered By: ${buildUser}  // User who triggered the build
 Build URL: ${env.BUILD_URL}"""
-                    sendMessageToGoogleChat(buildStartMessage)
+                        sendMessageToGoogleChat(buildStartMessage)
+                    }
                 }
             }
         }
+
 
         stage('Build WAR File') {
             steps {
@@ -78,36 +90,13 @@ Build URL: ${env.BUILD_URL}"""
                         return
                     }
 
+
                     echo "Building the WAR file for branch: ${params.BRANCH_NAME}"
                     sh 'mvn clean package -Dmaven.test.skip=true'
                 }
             }
         }
 
-        stage('Upload to Elastic Beanstalk') {
-            steps {
-                script {
-                    def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
-                    echo "✅ Uploading WAR file to Elastic Beanstalk: ${warFile}"
-
-                    // Assuming you will pass the Elastic Beanstalk environment URL for each agent
-                    def elasticBeanstalkEnvUrl = params.AGENT_LABEL == 'user-side-vf2.o-staging' ? 'http://firebase-staging-env-vf2.eba-di2pahnb.ap-south-1.elasticbeanstalk.com/' : 'https://production.elasticbeanstalk.com'
-
-                    // Get the application name and environment from the URL
-                    def applicationName = elasticBeanstalkEnvUrl.split("/")[2]
-                    def environmentName = elasticBeanstalkEnvUrl.split("/")[3]
-
-                    // Create application version in Elastic Beanstalk
-                    sh """
-                    aws elasticbeanstalk create-application-version \
-                        --application-name ${applicationName} \
-                        --version-label ${env.BUILD_NUMBER} \
-                        --source-bundle S3Bucket=vj-ocr-bucket,S3Key=deployments/${warFile} \
-                        --region your-region
-                    """
-                }
-            }
-        }
 
         stage('Deploy to Tomcat') {
             steps {
@@ -117,8 +106,10 @@ Build URL: ${env.BUILD_URL}"""
                         return
                     }
 
+
                     def warFile = sh(script: "ls target/*.war", returnStdout: true).trim()
                     echo "✅ Deploying WAR file: ${warFile}"
+
 
                     sshagent(['ubuntu']) {
                         sh """
@@ -128,6 +119,7 @@ Build URL: ${env.BUILD_URL}"""
                         """
                     }
 
+
                     def deploymentStatus = "🚀 Deployment successful for branch ${params.BRANCH_NAME}."
                     sendMessageToGoogleChat(deploymentStatus)
                 }
@@ -135,10 +127,12 @@ Build URL: ${env.BUILD_URL}"""
         }
     }
 
+
     post {
         always {
             cleanWs()
         }
+
 
         success {
             script {
@@ -149,6 +143,7 @@ Build URL: ${env.BUILD_URL}"""
                 sendMessageToGoogleChat(successMessage)
             }
         }
+
 
         failure {
             script {
@@ -161,6 +156,7 @@ Build URL: ${env.BUILD_URL}"""
         }
     }
 }
+
 
 def sendMessageToGoogleChat(String message) {
     def payloadGoogleChat = [
